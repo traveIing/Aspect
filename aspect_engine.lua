@@ -17,6 +17,8 @@ limitations under the License.
 
 -- Registry | Data Storage
 
+local Aspect = {}
+
 local ASP_REGISTRY : table = {}
 
 -- External Functions
@@ -41,14 +43,20 @@ end
 function AspExt.RuntimeError(error_content, RUNTIME : boolean, overrideDebugging : boolean?)
 	if (not RUNTIME) then warn "Missing RUNTIME debug data. Unable to error." return end
 	if (overrideDebugging == false and RUNTIME.DEBUGGING == true) or (overrideDebugging == true) then
-		print(error_content)
+		task.spawn(function() -- This is to reduce slowdowns, during runtime.
+			pcall(function() -- To prevent any unhandled Lua errors.
+				warn(
+					tostring(error_content)
+				)
+			end)
+		end)
 	end
 end
 
 function AspExt.ConstructError(ISSUE, ISSUE_CORE, EXPECTED_USAGE)
-	local ERROR = "Aspect Error ->"
-	if (ISSUE ~= nil) then ERROR = ERROR .. " [Issue: " .. ISSUE .. "]" end
-	if (ISSUE_CORE ~= nil) then ERROR = ERROR .. " [Issue Core: " .. ISSUE_CORE .. "]" end
+	local ERROR = "Aspect Error\n"
+	if (ISSUE ~= nil) then ERROR = ERROR .. " [Issue: " .. ISSUE .. "]\n" end
+	if (ISSUE_CORE ~= nil) then ERROR = ERROR .. " [Issue Core: " .. ISSUE_CORE .. "]\n" end
 	if (EXPECTED_USAGE ~= nil) then ERROR = ERROR .. " [Expected Usage: " .. EXPECTED_USAGE .. "]" end
 	return ERROR
 end
@@ -110,13 +118,7 @@ function AspExt.InterpretFunction(str)
 end
 
 function AspExt.InterpretInstructions(code, INSTRUCT)
-	if not code or not INSTRUCT then
-		return AspExt.ConstructError(
-			"Lacking parameters.",
-			"AspExt.InterpretLine",
-			"AspExt.InterpretLine(code : string, INSTRUCT)"
-		)
-	end
+	if not code or not INSTRUCT then return end
 
 	local LINE_CLASSIFIER = "[^\n]+"
 	local OP_PARAMS_ENTIRE = "(%S+)%s*(.*)"
@@ -151,8 +153,9 @@ function AspExt.CallFunctionInRegistry(OP, RUNTIME : table)
 				local success, issue = pcall(function() RESERVED_FUNCTION(param_values, RUNTIME) end)
 				if (success ~= true) and (issue ~= nil) then
 					local Error = AspExt.ConstructError(
-						"Registry function failed to execute. Lua Error: " .. issue,
-						"AspExt.CallFunctionInRegistry"
+						"A registered function failed to execute as an action. Lua Error: " .. issue,
+						"AspExt.CallFunctionInRegistry",
+						"This is most likely a Lua error, or a lack of error handling in the function. Ensure that any custom functions are properly coded."
 					)
 					return "RUNTIME_ERROR", Error
 				else
@@ -218,8 +221,9 @@ ASP_REGISTRY = {
 					print(variable)
 				elseif (data == nil) then
 					local Error = AspExt.ConstructError(
-						"Invalid variable.",
-						"print"
+						"A nonexistent, or unreadable variable has been received.",
+						"print",
+						'print("@truevariable")'
 					)
 					AspExt.RuntimeError(Error, RUNTIME, false)
 				else
@@ -227,8 +231,9 @@ ASP_REGISTRY = {
 				end
 			else
 				local Error = AspExt.ConstructError(
-					"Invalid data type.",
-					"print"
+					"An invalid data type has been provided inside of the print() function.",
+					"print (Engine Issue)",
+					"No usage issues have been identified, as this is typically caused due to a Lua error. You may have an outdated, or malformed engine."
 				)
 				AspExt.RuntimeError(Error, RUNTIME, false)
 				break
@@ -237,13 +242,49 @@ ASP_REGISTRY = {
 	end,
 
 	["Test"] = function()
-		print("Test Function Called At " .. os.date("%X") .. ".")
+		print("Test function called at " .. os.date("%X") .. ".")
 	end
 }
 
--- Interpreter
+-- Configurative Functions
 
-local Aspect = {}
+function Aspect.RegisterRuntimeFunctions(functions : table, returnStateInStringFormat : boolean)
+	local returnData : table = {}
+	do
+		returnData["distributions"] = 0
+		returnData["incomplete"] = 0
+		returnData["missingData"] = 0
+	end
+	local set, setError = pcall(function()
+		for _, func in pairs(functions) do
+			if (func["main"] ~= nil) and (func["name"] ~= nil) then
+				if type(func["main"]) == "function" then
+					ASP_REGISTRY[func["name"]] = func["main"]
+					returnData["distributions"] = returnData["distributions"] + 1
+				else
+					returnData["incomplete"] = returnData["incomplete"] + 1
+				end
+			else
+				returnData["missingData"] = returnData["missingData"] + 1
+			end
+		end
+	end)
+	if (not set) and (setError ~= nil) then
+		returnData["issue"] = setError
+	end
+
+	if (returnStateInStringFormat == true) then
+		local distributions = tostring(returnData["distributions"])
+		local incomplete = tostring(returnData["incomplete"])
+		local issue = tostring(returnData["issue"])
+		local missingData = tostring(returnData["missingData"])
+		return "[Distributions: " .. distributions .. "] [Unsuccessful: " .. incomplete .. "] [Malformed Functions: " .. missingData .. "] [Lua Issue: " .. issue .. "]"
+	else
+		return returnData
+	end
+end
+
+-- Interpreter
 
 function Aspect.Interpret(code : string, debugging : boolean?)
 	local RUNTIME : table = {
@@ -295,9 +336,9 @@ function Aspect.Interpret(code : string, debugging : boolean?)
 				if (CONDITION == "SYNTAX_ERROR") then
 					INTERPRETATION_TYPES["IF_STATEMENT"] = false
 					local Error = AspExt.ConstructError(
-						"Syntax error.",
-						"if",
-						"if {condition} [action]"
+						"A syntax error has been detected, involving a condition.",
+						"if {condition} ",
+						'Your statement should use the format: if {condition} [action] '
 					)
 					AspExt.RuntimeError(Error, RUNTIME, false) insert_error(ISSUE)
 				end
