@@ -155,7 +155,7 @@ function AspExt.CallFunctionInRegistry(OP, RUNTIME : table)
 					local Error = AspExt.ConstructError(
 						"A registered function failed to execute as an action. Lua Error: " .. issue,
 						"AspExt.CallFunctionInRegistry",
-						"This is most likely a Lua error, or a lack of error handling in the function. Ensure that any custom functions are properly coded."
+						"This is likely a result of an outdated engine, or a lack of error handling in the function. Ensure that any custom functions are properly coded."
 					)
 					return "RUNTIME_ERROR", Error
 				else
@@ -221,9 +221,9 @@ ASP_REGISTRY = {
 					print(variable)
 				elseif (data == nil) then
 					local Error = AspExt.ConstructError(
-						"A nonexistent, or unreadable variable has been received.",
+						"Nonexistent, or unreadable data has been received.",
 						"print",
-						'print("@truevariable")'
+						'print("@data")'
 					)
 					AspExt.RuntimeError(Error, RUNTIME, false)
 				else
