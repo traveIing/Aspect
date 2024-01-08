@@ -252,20 +252,15 @@ function Aspect.RegisterRuntimeFunctions(functions : table, returnStateInStringF
 	local returnData : table = {}
 	do
 		returnData["distributions"] = 0
-		returnData["incomplete"] = 0
 		returnData["missingData"] = 0
 	end
 	local set, setError = pcall(function()
 		for _, func : table in pairs(functions) do
 			if (func["main"] == nil) or (func["name"] == nil) or (typeof(func["main"]) ~= "function") or (typeof(func["name"] ~= "string")) then
 				returnData["missingData"] = returnData["missingData"] + 1
-			end
-
-			if (type(func["main"]) == "function") then
+			else
 				ASP_REGISTRY[func["name"]] = func["main"]
 				returnData["distributions"] = returnData["distributions"] + 1
-			else
-				returnData["incomplete"] = returnData["incomplete"] + 1
 			end
 		end
 	end)
@@ -276,10 +271,9 @@ function Aspect.RegisterRuntimeFunctions(functions : table, returnStateInStringF
 
 	if (returnStateInStringFormat == true) then
 		local distributions = tostring(returnData["distributions"])
-		local incomplete = tostring(returnData["incomplete"])
 		local issue = tostring(returnData["issue"])
 		local missingData = tostring(returnData["missingData"])
-		return "[Distributions: " .. distributions .. "] [Unsuccessful: " .. incomplete .. "] [Malformed Functions: " .. missingData .. "] [Lua Issue: " .. issue .. "]"
+		return "[Distributions: " .. distributions .. "] [Malformed Functions: " .. missingData .. "] [Lua Issue: " .. issue .. "]"
 	else
 		return returnData
 	end
