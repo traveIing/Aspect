@@ -256,19 +256,20 @@ function Aspect.RegisterRuntimeFunctions(functions : table, returnStateInStringF
 		returnData["missingData"] = 0
 	end
 	local set, setError = pcall(function()
-		for _, func in pairs(functions) do
-			if (func["main"] ~= nil) and (func["name"] ~= nil) then
-				if type(func["main"]) == "function" then
-					ASP_REGISTRY[func["name"]] = func["main"]
-					returnData["distributions"] = returnData["distributions"] + 1
-				else
-					returnData["incomplete"] = returnData["incomplete"] + 1
-				end
-			else
+		for _, func : table in pairs(functions) do
+			if (func["main"] == nil) or (func["name"] == nil) or (typeof(func["main"]) ~= "function") or (typeof(func["name"] ~= "string")) then
 				returnData["missingData"] = returnData["missingData"] + 1
+			end
+
+			if (type(func["main"]) == "function") then
+				ASP_REGISTRY[func["name"]] = func["main"]
+				returnData["distributions"] = returnData["distributions"] + 1
+			else
+				returnData["incomplete"] = returnData["incomplete"] + 1
 			end
 		end
 	end)
+
 	if (not set) and (setError ~= nil) then
 		returnData["issue"] = setError
 	end
@@ -298,6 +299,7 @@ function Aspect.Interpret(code : string, debugging : boolean?)
 	AspExt.InterpretInstructions(code,
 		function(OP, PARAM_LIST, PARAM_LIST_QUOTATIONMARKS, LINE)
 			-- print(OP)
+			print(LINE)
 
 			local INTERPRETATION_TYPES = {
 				["SYNTAX_ERROR"] = "VOID",
@@ -341,6 +343,7 @@ function Aspect.Interpret(code : string, debugging : boolean?)
 						'Your statement should use the format: if {condition} [action] '
 					)
 					AspExt.RuntimeError(Error, RUNTIME, false) insert_error(ISSUE)
+					return
 				end
 
 				--> If Statement Action Processing During Arithmetic | 1: Call Registry Function, 2: Set Variable
